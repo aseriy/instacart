@@ -51,7 +51,7 @@ Vagrant.configure("2") do |config|
     fi
     tar xzf /home/vagrant/${DOWNLOAD_DIR}/neo4j-community-3.5.3-unix.tar.gz
     ln -s neo4j-community-3.5.3 neo4j
-    adduser --system --group neo4j
+    adduser --system --group neo4j --shell /usr/bash
     chown -R neo4j.neo4j neo4j-community-3.5.3
     SHELL
 
