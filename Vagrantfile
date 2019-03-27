@@ -25,10 +25,10 @@ Vagrant.configure("2") do |config|
 
     instacart.vm.provider "virtualbox" do |vb|
       vb.gui = false
-      vb.memory = 2048
+      vb.memory = 4096
     end
 
-    instacart.vm.provision "java8", type: "shell",
+    instacart.vm.provision "java8", type: "shell", run: "once",
                         args: [downloads_dir], privileged: true, inline: <<-SHELL
     DOWNLOAD_DIR=$1
     cd /opt
@@ -41,7 +41,7 @@ Vagrant.configure("2") do |config|
     chown -R root.root jdk1.8.0_152
     SHELL
 
-    instacart.vm.provision "neo4j", type: "shell",
+    instacart.vm.provision "neo4j", type: "shell", run: "once",
                         args: [downloads_dir], privileged: true, inline: <<-SHELL
     DOWNLOAD_DIR=$1
     cd /opt
@@ -55,21 +55,31 @@ Vagrant.configure("2") do |config|
     chown -R neo4j.neo4j neo4j-community-3.5.3
     SHELL
 
-    instacart.vm.provision "python-env", type: "shell", privileged: true, inline: <<-SHELL
+    instacart.vm.provision "python-env", type: "shell", run: "once",
+                            privileged: true, inline: <<-SHELL
     apt-get -y install python-pip
     pip install virtualenv
     pip install neo4j
     SHELL
 
-    instacart.vm.provision "pubip", type: "shell", privileged: false, inline: <<-SHELL
+    instacart.vm.provision "ulimit", type: "shell", privileged: true,
+                        run: "once", inline: <<-SHELL
+    echo "*    soft nofile 64000" >> /etc/security/limits.conf
+    echo "*    hard nofile 64000" >> /etc/security/limits.conf
+    echo "root soft nofile 64000" >> /etc/security/limits.conf
+    echo "root hard nofile 64000" >> /etc/security/limits.conf
+    echo "session required pam_limits.so" >> /etc/pam.d/common-session
+    echo "session required pam_limits.so" >> /etc/pam.d/common-session-noninteractive
+    SHELL
+
+    instacart.vm.provision "neo4j-run", type: "shell", run: "never",
+                        args: [downloads_dir], privileged: true, inline: <<-SHELL
     if [ -f /home/vagrant/Downloads/ip ]; then
       rm -f /home/vagrant/Downloads/ip
     fi
     hostname -I | awk '{print $2}' > /home/vagrant/Downloads/ip
-    SHELL
+    chown vagrant.vagrant /home/vagrant/Downloads/ip
 
-    instacart.vm.provision "neo4j-run", type: "shell",
-                        args: [downloads_dir], privileged: true, inline: <<-SHELL
     cd /opt/neo4j
     HOST_IP=`cat /home/vagrant/Downloads/ip`
     CONF_FILE=conf/neo4j.conf
