@@ -60,6 +60,8 @@ Vagrant.configure("2") do |config|
     apt-get -y install python-pip
     pip install virtualenv
     pip install neo4j
+    pip install numpy
+    pip install pandas
     SHELL
 
     instacart.vm.provision "ulimit", type: "shell", privileged: true,
