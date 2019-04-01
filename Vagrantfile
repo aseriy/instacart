@@ -26,6 +26,8 @@ Vagrant.configure("2") do |config|
     instacart.vm.provider "virtualbox" do |vb|
       vb.gui = false
       vb.memory = 4096
+      # Enable AVX2
+      #vb.customize ["setextradata", :id, "VBoxInternal/CPUM/IsaExts/AVX2", "1"]
     end
 
     instacart.vm.provision "java8", type: "shell", run: "once",
@@ -62,6 +64,8 @@ Vagrant.configure("2") do |config|
     pip install neo4j
     pip install numpy
     pip install pandas
+    pip install keras
+    pip install tensorflow
     SHELL
 
     instacart.vm.provision "ulimit", type: "shell", privileged: true,

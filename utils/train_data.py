@@ -2,6 +2,17 @@
 from neo4j import GraphDatabase
 import pandas as pd
 import numpy as np
+import json
+import os
+
+json_x_file = 'train_x.json'
+json_y_file = 'train_y.json'
+fx = open(json_x_file, 'w')
+fx.write('{"data": [\n')
+fx.close()
+fy = open(json_y_file, 'w')
+fy.write('{"data": [\n')
+fy.close()
 
 server = None
 
@@ -27,8 +38,6 @@ max_item_count = 0
 
 
 def get_order(id):
-    global frame_x
-    global frame_y
     global cols_x
     global cols_y
     global max_item_count
@@ -61,14 +70,12 @@ def get_order(id):
     i = 0
     while i < len(items):
         item = items[i]
-        print (item)
 
         if item["item"] > max_item_count:
             cols_x.append("dept" + str(item["item"]))
             cols_x.append("aisle" + str(item["item"]))
             cols_x.append("prod" + str(item["item"]))
             max_item_count = item["item"]
-            print max_item_count
 
         prod = None
         with driver.session() as s:
@@ -87,8 +94,12 @@ def get_order(id):
             "prod": item["prod"]
             }
 
-        frame_x.append(x.copy())
-        frame_y.append(y)
+        fx = open(json_x_file, 'a')
+        fx.write(json.dumps(x) + ',\n')
+        fx.close()
+        fy = open(json_y_file, 'a')
+        fy.write(json.dumps(y) + ',\n')
+        fy.close()
 
         # Next X row
         x["dept" + str(item["item"])] = prod["dept"]
@@ -99,10 +110,6 @@ def get_order(id):
         i += 1
     # end of while
 
-    frame_x.append(x.copy())
-    frame_y.append({})
-
-
 
 
 
@@ -111,17 +118,52 @@ with driver.session() as s:
     orders = s.run(
             "MATCH (u:User)-[:PLACED]->(o:Order)-[:INCLUDES]->(p:Product)"
             "-[:LOCATED_IN]->(a:Aisle)<-[:MANAGES]-(d:Department) "
-            "RETURN o.id AS id"
+            "RETURN o.id AS id LIMIT 10000"
             ).data()
 
 c = 1
 total = len(orders)
 for order in orders:
-    print ("Order %d of %d: %d" % (c, total, order["id"]))
+    print ("Order %d of %d (%d%%): %d"
+            % (c, total, int(100 * c/total + .5), order["id"]))
     get_order(order["id"])
     c += 1
 
-df_x = pd.DataFrame(frame_x, columns=cols_x)
-df_y = pd.DataFrame(frame_y, columns=cols_y)
+fx = open(json_x_file, 'r+')
+fx.seek(-2, os.SEEK_END)
+fx.write('\n],\n')
+fx.write('"columns": ' + json.dumps(cols_x) + '\n}\n')
+fx.close()
+fy = open(json_y_file, 'r+')
+fy.seek(-2, os.SEEK_END)
+fy.write('\n],\n')
+fy.write('"columns": ' + json.dumps(cols_y) + '\n}\n')
+fy.close()
+
+quit()
+
+# Load X,Y pickles into dataframes
+df_x = pd.DataFrame(columns=cols_x)
+with open(json_x_file, 'rb') as fx:
+    while True:
+        try:
+            x = pickle.load(fx)
+            print x
+            df = pd.DataFrame([x], columns=cols_x)
+            df_x = df_x.append(df, ignore_index=True)
+        except EOFError:
+            break
+
+df_y = pd.DataFrame(columns=cols_y)
+with open(json_y_file, 'rb') as fy:
+    while True:
+        try:
+            y = pickle.load(fy)
+            print y
+            df = pd.DataFrame([y], columns=cols_y)
+            df_y = df_y.append(df, ignore_index=True)
+        except EOFError:
+            break
+
 df_x.to_csv('train_x.csv')
 df_y.to_csv('train_y.csv')
