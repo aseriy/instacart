@@ -66,6 +66,9 @@ Vagrant.configure("2") do |config|
     pip install pandas
     pip install keras
     pip install tensorflow
+    pip install more_itertools
+    pip install Dumper
+    apt-get install -y libhdf5-serial-dev
     SHELL
 
     instacart.vm.provision "ulimit", type: "shell", privileged: true,

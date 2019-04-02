@@ -4,3 +4,4 @@ Downloads/
 .DS_Store
 dataset.zip
 instacart.dump
+*.pyc

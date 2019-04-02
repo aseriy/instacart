@@ -80,13 +80,13 @@ def add_products():
                             id=id, name=name, aisle_id=aisle)
 
 
-def add_orders(eval_set):
+def add_orders(data_set):
     with open(csv_orders) as orders_file:
         next(orders_file)
         orders = csv.reader(orders_file, delimiter=',')
         users = {}
         for order in orders:
-            if order[2] == eval_set:
+            if order[2] == data_set:
                 user_id = int(order[1])
                 if not user_id in users.keys():
                     users[user_id] = None
@@ -98,9 +98,11 @@ def add_orders(eval_set):
                     print("User %d placed Order %d" % (user_id,order_id))
                     with driver.session() as session:
                         session.run("MATCH (u:User {id: $user_id}) "
-                                    "CREATE (o:Order {id: $order_id})"
+                                    "CREATE (o:Order "
+                                    "{id: $order_id, data_set: $data_set})"
                                     "<-[r:PLACED]-(u) RETURN type(r)",
-                                    order_id=int(order_id), user_id=int(user_id))
+                                    order_id=int(order_id), user_id=int(user_id),
+                                    data_set=data_set)
 
 
 def add_order_details(csv_file):
@@ -108,11 +110,23 @@ def add_order_details(csv_file):
     with open(csv_order_items) as order_items_file:
         next(order_items_file)
         items = csv.reader(order_items_file, delimiter=',')
+        add_to_cart_order = 0
+        order_id_prev = None
         for item in items:
             order_id = int(item[0])
+
+            if len(item) < 3 and order_id_prev != order_id:
+                order_id_prev = order_id
+                add_to_cart_order = 0
+
             product_id = int(item[1])
-            add_to_cart_order = int(item[2])
-            reordered = (item[3] == 1)
+            if len(item) > 2:
+                add_to_cart_order = int(item[2])
+                reordered = (item[3] == 1)
+            else:
+                add_to_cart_order += 1
+                reordered = False
+
             print("Order %d [%d] --> %d (repeat: %s)" %
                     (order_id, add_to_cart_order, product_id, reordered))
             with driver.session() as session:
@@ -122,6 +136,9 @@ def add_order_details(csv_file):
                             "RETURN type(r)",
                             order_id=order_id, product_id=product_id,
                             cart_order=add_to_cart_order)
+
+
+
 
 
 def wipe_clean():
@@ -134,5 +151,6 @@ def wipe_clean():
 #add_departments()
 #add_aisles()
 #add_products()
-#add_orders("train")
-add_order_details("order_products__train_cap.csv")
+#add_orders("test")
+#add_order_details("order_products__train_cap.csv")
+add_order_details("order_products__test_cap.csv")

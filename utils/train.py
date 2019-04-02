@@ -2,54 +2,57 @@
 
 from keras.models import Sequential
 from keras.layers import Dense
-from keras.callbacks import EarlyStopping
-import numpy as np
-import pandas as pd
+from keras.models import load_model
 
-#train_x_file = '../Downloads/backup/train_x.json'
-#train_y_file = '../Downloads/backup/train_y.json'
-train_x_file = 'train_x.json'
-train_y_file = 'train_y.json'
 
-#read in data using pandas
-train_X = pd.read_json(train_x_file, orient="split")
-train_X = train_X.replace(np.nan, 0)
-for col in train_X.columns.values:
-    train_X[col] = train_X[col].astype('int32')
+from data_pump import *
 
-train_Y = pd.read_json(train_y_file, orient="split")
-train_Y = train_Y.drop(columns=["dept","aisle"]).replace(np.nan, 0)
-for col in train_Y.columns.values:
-    train_Y[col] = train_Y[col].astype('int32')
+def generate_model(input_width, output_width):
+	model = Sequential([
+		Dense(input_width,
+			input_shape=(input_width,),
+			activation='relu'),
+		Dense(input_width, activation='relu'),
+		Dense(input_width, activation='relu'),
+		Dense(input_width, activation='relu'),
+		Dense(input_width, activation='relu'),
+		Dense(input_width, activation='relu'),
+		Dense(input_width, activation='relu'),
+		Dense(output_width, activation='relu'),
+	])
 
-#check data has been read in properly
-print train_X.head()
-print train_Y.head()
+	return model
 
-#quit()
 
-#create model
-model = Sequential()
 
-#get number of columns in training data
-x_n_cols = train_X.shape[1]
 
-#add model layers
-model.add(Dense(200, activation='relu', input_shape=(x_n_cols,)))
-model.add(Dense(200, activation='relu'))
-model.add(Dense(200, activation='relu'))
-model.add(Dense(200, activation='relu'))
-model.add(Dense(200, activation='relu'))
-model.add(Dense(200, activation='relu'))
-model.add(Dense(1))
+def train(args):
 
-#compile model using mse as a measure of model performance
-model.compile(optimizer='adam', loss='mean_squared_error')
+	dp = DataPump()
+#	samples = dp.pump_test()
+#	print samples.next()
 
-#set early stopping monitor so the model stops training when it won't improve anymore
-early_stopping_monitor = EarlyStopping(patience=3)
+	model = generate_model(dp.input_width, dp.output_width)
 
-#train model
-model.fit(train_X, train_Y,
-			validation_split=0.2, epochs=30,
-			callbacks=[early_stopping_monitor])
+	model.compile(loss='mean_squared_error',
+				optimizer='adam',
+				metrics=['accuracy'])
+
+	model.fit_generator(dp.pump_train(),
+						steps_per_epoch=dp.train_steps,
+						epochs=20)
+
+	result = model.evaluate_generator(
+				dp.pump_test(), steps=dp.test_steps)
+	print("Accuracy: %d" % round(result[1]*100))
+	model.save('instacart_model.h5')
+
+
+if __name__ == '__main__':
+
+	import argparse
+	parser = argparse.ArgumentParser()
+	#parser.add_argument('--database', type=str, default="hosted")
+	args = parser.parse_args()
+
+	train(args)
